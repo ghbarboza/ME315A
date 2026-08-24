@@ -1,0 +1,105 @@
+---
+title: "Lista02_Barboza"
+author: "Guilherme H D S Barboza Gonçalves 266060"
+format: pdf
+editor: source
+---
+
+
+## Conexão R >>> SQlite
+
+```{r}
+
+library(DBI)
+library(RSQLite)
+
+con <- dbConnect(SQLite(), "me315.sqlite")
+```
+
+## SQLite
+
+```{sql connection=con}
+
+SELECT * FROM PRESERVE
+
+```
+
+## Hands-On
+
+1. Exiba a tabela inteira. Ordene o resultado pela coluna `ACRES` em ordem crescente.
+
+```{sql connection=con}
+SELECT * FROM PRESERVE
+ORDER BY ACRES
+```
+
+2. Exiba o nome da reserva (`PNAME`) e a taxa de entrada (`FEE`) de cada reserva natural localizada em Montana. Ordene o resultado pelo nome da reserva em ordem decrescente.
+
+```{sql connection=con}
+SELECT PNAME, FEE FROM PRESERVE
+WHERE STATE = "MT"
+ORDER BY PNAME DESC
+```
+
+3. Exiba as colunas `FEE` e `ACRES` de todas as linhas da tabela. Ordene as linhas exibidas por `ACRES` dentro de `FEE` (`FEE` é o campo de ordenação principal, e `ACRES` é o campo de ordenação secundário.)
+
+```{sql connection=con}
+SELECT FEE, ACRES FROM PRESERVE
+ORDER BY FEE, ACRES
+```
+
+4. Suponha (irrealisticamente) que os valores de `PNO` sejam considerados confidenciais. Exiba o valor de `PNAME` para cada reserva natural localizada no Arizona. Apresente o resultado em ordem crescente de `PNO`, sem exibir os valores de `PNO`.
+
+```{sql connection=con}
+SELECT PNAME FROM PRESERVE
+WHERE STATE = "AZ"
+ORDER BY PNO
+```
+
+5. Exiba os valores de `STATE`, `FEE` e `PNO` para todas as reservas naturais que tenham mais de 100 acres. Ordene a tabela resultante da seguinte forma: `STATE` é o campo de ordenação de primeiro nível, em ordem decrescente; `FEE` é o campo de ordenação de segundo nível, em ordem decrescente; `PNO` é o campo de ordenação de terceiro nível, em ordem crescente.
+```{sql connection=con}
+SELECT STATE, FEE, PNO FROM PRESERVE
+WHERE ACRES > 100
+ORDER BY STATE DESC, FEE DESC, PNO
+```
+
+6. Exiba todas as linhas em que o valor de `STATE` seja maior ou igual à letra `M`.
+```{sql connection=con}
+SELECT * FROM PRESERVE
+WHERE STATE >= "M"
+```
+
+7. Exiba todas as linhas em que o valor do nome da reserva (`PNAME`) seja menor que `TATKON`.
+```{sql connection=con}
+SELECT * FROM PRESERVE
+WHERE PNAME < "TATKON"
+```
+
+Os exercícios a seguir fazem referência à tabela `EMPLOYEE`.
+
+9. Exiba a tabela EMPLOYEE inteira, ordenada pelo nome do funcionário em ordem crescente.
+```{sql connection=con}
+SELECT * FROM EMPLOYEE
+ORDER BY ENAME
+```
+
+10. Exiba o nome e o salário de qualquer funcionário cujo salário seja superior a $ 2.000,00. Ordene o resultado pelo salário em ordem decrescente.
+
+```{sql connection=con}
+SELECT ENAME, SALARY FROM EMPLOYEE
+WHERE SALARY > 2000
+ORDER BY SALARY DESC
+```
+
+11. Exiba o número do departamento (`DNO`), o número do funcionário (`ENO`) e o nome do funcionário de todos os funcionários (`ENAME`). Ordene o resultado pelo número do funcionário (em ordem crescente) dentro do número do departamento (em ordem decrescente).
+
+```{sql connection=con}
+SELECT DNO, ENO, ENAME FROM EMPLOYEE
+ORDER BY DNO DESC, ENO
+```
+
+```{r}
+
+Sys.setenv(TZ = "America/Sao_Paulo")
+Sys.time()
+```
