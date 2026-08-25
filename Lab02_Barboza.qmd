@@ -1,0 +1,123 @@
+---
+title: "Lab02_Barboza"
+author: "Guilherme H D S Barboza Gonçalves 266060"
+format: pdf
+editor: source
+---
+
+# Pacotes
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggcal)
+library(ggplot2)
+```
+
+# 1. Quais são as estatísticas suficientes para a determinação do percentual de voos atrasados na chegada (`ARRIVAL_DELAY > 10`)?
+
+Para cada grupo (dia, mês, Cia. Aérea), basta guardar `n` (total de voos) e `n_delay` (voos com `ARRIVAL_DELAY > 10`). O percentual final é `n_delay / n`. Como são somas simples, dá pra calcular em cada lote separadamente e depois somar entre os lotes sem perder informação.
+
+# 2. Crie uma função chamada `getStats`
+
+Filtra as Cias. AA, DL, UA e US, remove valores faltantes, agrupa por dia/mês/Cia. Aérea e retorna as estatísticas suficientes como um tibble, recebendo os argumentos `input` e `pos`.
+
+```{r}
+getStats <- function(input, pos) {
+  input %>%
+    filter(AIRLINE %in% c("AA", "DL", "UA", "US")) %>%
+    filter(!is.na(ARRIVAL_DELAY)) %>%
+    group_by(YEAR, MONTH, DAY, AIRLINE) %>%
+    summarise(
+      n       = n(),
+      n_delay = sum(ARRIVAL_DELAY > 10),
+      .groups = "drop"
+    )
+}
+```
+
+# 3. Leitura em lotes com `read_csv_chunked`
+
+Importa `flights.csv.zip` em lotes de 100 mil registros, com callback aplicando `getStats`, e `col_types` lendo apenas as colunas de interesse.
+
+```{r}
+col_types <- cols_only(
+  YEAR          = col_integer(),
+  MONTH         = col_integer(),
+  DAY           = col_integer(),
+  AIRLINE       = col_character(),
+  ARRIVAL_DELAY = col_double()
+)
+
+stats_por_lote <- read_csv_chunked(
+  file       = "flights.csv",
+  callback   = DataFrameCallback$new(getStats),
+  chunk_size = 100000,
+  col_types  = col_types
+)
+
+stats_por_lote
+```
+
+# 4. Crie uma função chamada `computeStats`
+
+Combina as estatísticas suficientes de todos os lotes e retorna um tibble com as colunas `Cia`, `Data` (formato AAAA-MM-DD) e `Perc` (percentual entre 0 e 1).
+
+```{r}
+computeStats <- function(x) {
+  x %>%
+    group_by(AIRLINE, YEAR, MONTH, DAY) %>%
+    summarise(
+      n       = sum(n),
+      n_delay = sum(n_delay),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      Data = as.Date(paste(YEAR, MONTH, DAY, sep = "-")),
+      Perc = n_delay / n
+    ) %>%
+    select(Cia = AIRLINE, Data, Perc)
+}
+
+resultado <- computeStats(stats_por_lote)
+resultado
+```
+
+# 5. Produza um mapa de calor em formato de calendário para cada Cia. Aérea
+
+Define a paleta de cores com `scale_fill_gradient`, do `#4575b4` ao `#d73027`, armazenada em `pal`; cria a função `baseCalendario(stats, cia)`; aplica para AA, DL, UA e US, guardando em `cAA`, `cDL`, `cUA` e `cUS`; e apresenta cada mapa de calor com título via `ggtitle`.
+
+```{r}
+pal <- scale_fill_gradient(low = "#4575b4", high = "#d73027")
+
+baseCalendario <- function(stats, cia) {
+  sub <- stats %>% filter(Cia == cia)
+  ggcal(sub$Data, sub$Perc)
+}
+
+cAA <- baseCalendario(resultado, "AA")
+cDL <- baseCalendario(resultado, "DL")
+cUA <- baseCalendario(resultado, "UA")
+cUS <- baseCalendario(resultado, "US")
+```
+
+```{r}
+cAA + pal + ggtitle("Percentual de atrasos - American Airlines (AA)")
+```
+
+```{r}
+cDL + pal + ggtitle("Percentual de atrasos - Delta Air Lines (DL)")
+```
+
+```{r}
+cUA + pal + ggtitle("Percentual de atrasos - United Airlines (UA)")
+```
+
+```{r}
+cUS + pal + ggtitle("Percentual de atrasos - US Airways (US)")
+```
+
+```{r}
+Sys.setenv(TZ = "America/Sao_Paulo")
+Sys.time()
+```
