@@ -1,0 +1,137 @@
+---
+title: "LAB04_Barboza"
+author: "Guilherme H D S Barboza Gonçalves"
+format: pdf
+editor: source
+---
+
+Q1. Carreguandp os pacotes
+
+```{r}
+library(readxl)
+library(tidyverse)
+```
+
+Q2. Crie uma variável `fname` com o caminho para o arquivo `WDIEXCEL.xlsx` e confirme sua existência.
+
+```{r}
+fname <- "WDIEXCEL.xlsx"
+file.exists(fname)
+```
+
+Q3. Leia a planilha "Country" e armazene no objeto `countries`.
+
+```{r}
+countries <- read_excel(
+  fname,
+  sheet = "Country",
+  range = "A1:B265"
+)
+
+countries
+```
+
+Q4. Mantenha apenas os registros de 5 países (Brasil e outros 4 de sua escolha).
+
+```{r}
+countries <- countries %>%
+  filter(`Country Code` %in% c("BRA", "USA", "CHN", "ARG", "ZAF"))
+
+countries
+```
+
+Q5. Leia a planilha "Data" e armazene no objeto `WDI`.
+
+```{r}
+WDI <- read_excel(
+  fname,
+  sheet = "Data",
+  range = cell_cols("A:BK")
+)
+
+WDI
+```
+
+Q6. Selecione apenas as colunas `Country Code`, `Indicator Code` e todos os anos de 1960 a 2018.
+
+```{r}
+anos <- as.character(1960:2018)
+
+WDI <- WDI %>%
+  select(`Country Code`, `Indicator Code`, all_of(anos))
+
+WDI
+```
+
+Q7. Confirme se os dados de `WDI` estão em formato tidy. Se não estiverem, transforme-os, criando uma coluna `YEAR`.
+
+Os dados **não** estão em formato tidy: cada ano (1960, 1961, ..., 2018) aparece como uma coluna, quando na verdade o ano é o valor de uma variável (não o nome de uma variável). Usamos `pivot_longer` para reunir essas colunas numa única coluna `YEAR`, com os valores dos indicadores numa coluna `value`.
+
+```{r}
+WDI <- WDI %>%
+  pivot_longer(
+    cols = all_of(anos),
+    names_to = "YEAR",
+    values_to = "value"
+  )
+
+WDI
+```
+
+Q8. Confirme se a coluna referente ao ano está em formato inteiro.
+
+```{r}
+class(WDI$YEAR)
+
+WDI <- WDI %>%
+  mutate(YEAR = as.integer(YEAR))
+
+class(WDI$YEAR)
+```
+
+Q9. Mantenha, em `WDI`, apenas os registros dos países listados em `countries`. Selecione as colunas `Country Code`, `Short Name`, `YEAR` e `SP.DYN.CBRT.IN`.
+
+Como precisamos trazer a coluna `Short Name` (que só existe em `countries`) para dentro de `WDI`, a operação apropriada é um *mutating join* (`inner_join`), e não um *filtering join* (que apenas filtraria linhas, sem adicionar colunas novas).
+
+```{r}
+WDI <- WDI %>%
+  filter(`Indicator Code` == "SP.DYN.CBRT.IN") %>%
+  inner_join(
+    countries %>% select(`Country Code`, `Short Name`),
+    by = "Country Code"
+  ) %>%
+  select(`Country Code`, `Short Name`, YEAR, SP.DYN.CBRT.IN = value)
+
+WDI
+```
+
+Q10. Ordene o objeto de forma que, para cada país, as informações estejam ordenadas por ano.
+
+```{r}
+WDI <- WDI %>%
+  arrange(`Country Code`, YEAR)
+
+WDI
+```
+
+Q11. Construa um gráfico de linhas com `YEAR` no eixo X, `SP.DYN.CBRT.IN` no eixo Y, uma linha por país.
+
+```{r}
+ggplot(WDI, aes(x = YEAR, y = SP.DYN.CBRT.IN, color = `Short Name`, group = `Short Name`)) +
+  geom_line() +
+  labs(
+    x = "Ano",
+    y = "Taxa de natalidade (SP.DYN.CBRT.IN)",
+    color = "País",
+    title = "Taxa de natalidade ao longo do tempo, por país"
+  )
+```
+
+
+```{r}
+Sys.setenv(TZ = "America/Sao_Paulo")
+Sys.time()
+```
+
+
+
