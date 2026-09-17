@@ -1,0 +1,148 @@
+---
+title: "LAB05_Barboza"
+author: "Guilherme H D S Barboza Gonçalves"
+format: html
+editor: source
+---
+
+Q1. Carregando os pacotes
+
+```{r}
+library(readr)
+library(dplyr)
+library(lubridate)
+library(leaflet)
+```
+
+Parte 1. Função `analisa_aeronave`
+
+A função recebe o código da aeronave (`tail_number`) e o caminho do arquivo de voos (`arquivo`). Ela lê o arquivo por partes (chunks), mantém apenas os voos daquela aeronave, monta uma tabela tidy ordenada cronologicamente com todas as colunas de `flights.csv`, junta as coordenadas dos aeroportos e desenha um mapa do trajeto voado ao longo do ano, com a espessura da linha representando a velocidade média do voo.
+
+```{r}
+analisa_aeronave <- function(tail_number, arquivo) {
+
+  filtra_lote <- function(lote, pos) {
+    lote %>% filter(TAIL_NUMBER == tail_number)
+  }
+
+  tipos_colunas <- cols(
+    YEAR                 = col_integer(),
+    MONTH                = col_integer(),
+    DAY                  = col_integer(),
+    DAY_OF_WEEK          = col_integer(),
+    AIRLINE              = col_character(),
+    FLIGHT_NUMBER        = col_integer(),
+    TAIL_NUMBER          = col_character(),
+    ORIGIN_AIRPORT       = col_character(),
+    DESTINATION_AIRPORT  = col_character(),
+    SCHEDULED_DEPARTURE  = col_integer(),
+    DEPARTURE_TIME       = col_integer(),
+    DEPARTURE_DELAY      = col_double(),
+    TAXI_OUT             = col_double(),
+    WHEELS_OFF           = col_integer(),
+    SCHEDULED_TIME       = col_double(),
+    ELAPSED_TIME         = col_double(),
+    AIR_TIME             = col_double(),
+    DISTANCE             = col_double(),
+    WHEELS_ON            = col_integer(),
+    TAXI_IN              = col_double(),
+    SCHEDULED_ARRIVAL    = col_integer(),
+    ARRIVAL_TIME         = col_integer(),
+    ARRIVAL_DELAY        = col_double(),
+    DIVERTED             = col_integer(),
+    CANCELLED            = col_integer(),
+    CANCELLATION_REASON  = col_character(),
+    AIR_SYSTEM_DELAY     = col_double(),
+    SECURITY_DELAY       = col_double(),
+    AIRLINE_DELAY        = col_double(),
+    LATE_AIRCRAFT_DELAY  = col_double(),
+    WEATHER_DELAY        = col_double()
+  )
+
+
+  voos_aeronave <- read_csv_chunked(
+    file       = arquivo,
+    callback   = DataFrameCallback$new(filtra_lote),
+    chunk_size = 500000,
+    col_types  = tipos_colunas
+  )
+
+  
+  voos_aeronave <- voos_aeronave %>%
+    mutate(
+      DATA_HORA_PARTIDA = make_datetime(
+        year  = YEAR,
+        month = MONTH,
+        day   = DAY,
+        hour  = SCHEDULED_DEPARTURE %/% 100,
+        min   = SCHEDULED_DEPARTURE %% 100
+      )
+    ) %>%
+    arrange(DATA_HORA_PARTIDA)
+
+  airports <- read_csv(
+    file.path("dados", "airports.csv"),
+    col_types = cols_only(
+      IATA_CODE = col_character(),
+      LATITUDE  = col_double(),
+      LONGITUDE = col_double()
+    )
+  )
+
+  trajeto <- voos_aeronave %>%
+    left_join(airports, by = c("ORIGIN_AIRPORT" = "IATA_CODE")) %>%
+    rename(LAT_ORIGEM = LATITUDE, LON_ORIGEM = LONGITUDE) %>%
+    left_join(airports, by = c("DESTINATION_AIRPORT" = "IATA_CODE")) %>%
+    rename(LAT_DESTINO = LATITUDE, LON_DESTINO = LONGITUDE) %>%
+    mutate(VELOCIDADE_MEDIA = DISTANCE / (AIR_TIME / 60))
+
+  mapa <- leaflet(data = trajeto) %>%
+    addTiles()
+
+  for (i in seq_len(nrow(trajeto))) {
+    mapa <- mapa %>%
+      addPolylines(
+        lng    = c(trajeto$LON_ORIGEM[i], trajeto$LON_DESTINO[i]),
+        lat    = c(trajeto$LAT_ORIGEM[i], trajeto$LAT_DESTINO[i]),
+        weight = trajeto$VELOCIDADE_MEDIA[i] / 50,
+        popup  = paste0(
+          trajeto$ORIGIN_AIRPORT[i], " -> ", trajeto$DESTINATION_AIRPORT[i],
+          "<br>Data: ", as.Date(trajeto$DATA_HORA_PARTIDA[i]),
+          "<br>Velocidade média: ", round(trajeto$VELOCIDADE_MEDIA[i], 0), " mph"
+        )
+      )
+  }
+
+
+  mapa <- mapa %>%
+    addMarkers(
+      lng   = trajeto$LON_ORIGEM,
+      lat   = trajeto$LAT_ORIGEM,
+      popup = trajeto$ORIGIN_AIRPORT
+    )
+
+
+  list(tabela = trajeto, grafico = mapa)
+}
+```
+
+Aplicando a função a uma aeronave de interesse (troque o valor de `tail_number` pelo código real de uma aeronave presente no seu `flights.csv`):
+
+```{r}
+resultado <- analisa_aeronave(
+  tail_number = "N431WN",
+  arquivo     = file.path("dados", "flights.csv")
+)
+
+resultado$tabela
+```
+
+```{r}
+resultado$grafico
+```
+
+
+```{r}
+Sys.setenv(TZ = "America/Sao_Paulo")
+Sys.time()
+```
