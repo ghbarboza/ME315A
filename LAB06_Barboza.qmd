@@ -1,0 +1,111 @@
+---
+title: "LAB06_Barboza"
+author: "Guilherme H D S Barboza Gonçalves"
+format: pdf
+editor: source
+---
+
+1. Baixe o arquivo `disco.db` e armazene na variável `path` o caminho completo  na qual o arquivo foi gravado. Utilize `file.path()` para combinar `path` com o nome do arquivo e obter `fname`.
+
+```{r}
+path  <- "dados"
+fname <- file.path(path, "disco.db")
+fname
+```
+
+2. Utilizando o pacote `RSQLite`, conecte-se ao arquivo de banco de dados. Armazene a conexão na variável `conn`.
+
+```{r}
+library(DBI)
+library(RSQLite)
+
+conn <- dbConnect(RSQLite::SQLite(), fname)
+```
+
+3. Liste as tabelas existentes no banco de dados.
+
+```{r}
+dbListTables(conn)
+```
+
+4. Identifique os nomes de todas as colunas existentes na tabela `customers`.
+
+```{r}
+dbListFields(conn, "customers")
+```
+
+5. Utilizando apenas SQLite, com o apoio do comando `dbGetQuery`, identifique quantos clientes estão atualmente cadastrados neste banco de dados.
+
+```{r}
+dbGetQuery(conn, "
+  SELECT COUNT(*) AS total_clientes
+  FROM customers
+")
+```
+
+6. Utilizando apenas SQLite, identifique o número de países diferentes em que moram os clientes encontrados acima.
+
+```{r}
+dbGetQuery(conn, "
+  SELECT COUNT(DISTINCT Country) AS n_paises
+  FROM customers
+")
+```
+
+7. Utilizando apenas SQLite, quantos clientes existem por país? A tabela resultante deve conter o nome do país e a respectiva contagem, ordenada de forma decrescente pela contagem.
+
+```{r}
+dbGetQuery(conn, "
+  SELECT Country, COUNT(*) AS n_clientes
+  FROM customers
+  GROUP BY Country
+  ORDER BY n_clientes DESC
+")
+```
+
+8. Quais são os 5 países com mais clientes registrados? Use apenas SQLite.
+
+```{r}
+dbGetQuery(conn, "
+  SELECT Country, COUNT(*) AS n_clientes
+  FROM customers
+  GROUP BY Country
+  ORDER BY n_clientes DESC
+  LIMIT 5
+")
+```
+
+9. Quais são os países registrados que possuem apenas 6 letras no nome?
+
+```{r}
+dbGetQuery(conn, "
+  SELECT DISTINCT Country
+  FROM customers
+  WHERE Country GLOB '??????'
+")
+```
+
+10. Quais foram as músicas compradas por clientes brasileiros?
+
+```{r}
+dbGetQuery(conn, "
+  SELECT DISTINCT t.Name AS musica
+  FROM customers c
+  INNER JOIN invoices i ON c.CustomerId = i.CustomerId
+  INNER JOIN invoice_items ii ON i.InvoiceId = ii.InvoiceId
+  INNER JOIN tracks t ON ii.TrackId = t.TrackId
+  WHERE c.Country = 'Brazil'
+")
+```
+
+11. Desconecte do banco de dados.
+
+```{r}
+dbDisconnect(conn)
+```
+
+
+```{r}
+Sys.setenv(TZ = "America/Sao_Paulo")
+Sys.time()
+```
